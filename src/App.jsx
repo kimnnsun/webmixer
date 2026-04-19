@@ -63,6 +63,32 @@ export default function App() {
     };
   }, []);
 
+  // ── [모바일 대응] 사용자 초기 상호작용으로 AudioContext 활성화 (Autoplay 제약 우회) ── 
+  useEffect(() => {
+    const handleFirstInteraction = async () => {
+      try {
+        const ctx = ensureAudioContext();
+        if (ctx.state === 'suspended') {
+          await ctx.resume();
+          console.log('🔓 [Init] 첫 터치/클릭 감지: AudioContext 상태 해제 (running)');
+        }
+      } catch (err) {
+        console.error('⚠️ [Init] AudioContext 초기 활성화 실패:', err);
+      } finally {
+        window.removeEventListener('pointerdown', handleFirstInteraction);
+        window.removeEventListener('touchstart', handleFirstInteraction);
+      }
+    };
+
+    window.addEventListener('pointerdown', handleFirstInteraction, { once: true });
+    window.addEventListener('touchstart', handleFirstInteraction, { once: true });
+
+    return () => {
+      window.removeEventListener('pointerdown', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
+    };
+  }, [ensureAudioContext]);
+
   // ── 이펙트 필터 Refs ──────────────────────────────────
   const lowFilterRef = useRef(null);
   const highFilterRef = useRef(null);
@@ -162,32 +188,43 @@ export default function App() {
 
   // ── 재생 (offset 위치부터) ────────────────────────────
   const play = useCallback(async (offset = 0) => {
-    const ctx = ensureAudioContext();
+    try {
+      const ctx = ensureAudioContext();
 
-    if (ctx.state === 'suspended') await ctx.resume();
-    await loadAudio(ctx);
-    if (isPlayingRef.current) return;
+      if (ctx.state === 'suspended') {
+        await ctx.resume();
+        console.log('✅ 재생 버튼 눌림: AudioContext가 running 상태로 성공적으로 전환되었습니다.');
+      }
 
-    const src = ctx.createBufferSource();
-    src.buffer = audioBufferRef.current;
-    src.loop = true;
-    src.connect(lowFilterRef.current);
-    src.start(0, offset);
+      await loadAudio(ctx);
+      if (isPlayingRef.current) return;
 
-    sourceNodeRef.current = src;
-    startTimeRef.current = ctx.currentTime - offset;
-    isPlayingRef.current = true;
+      const src = ctx.createBufferSource();
+      src.buffer = audioBufferRef.current;
+      src.loop = true;
+      src.connect(lowFilterRef.current);
+      src.start(0, offset);
 
-    // 조명 숨쉬기 활성화 (페이드아웃 중이었다면 중단)
-    if (lightFadeTweenRef.current) {
-      lightFadeTweenRef.current.kill();
-      lightFadeTweenRef.current = null;
+      sourceNodeRef.current = src;
+      startTimeRef.current = ctx.currentTime - offset;
+      isPlayingRef.current = true;
+
+      // 조명 숨쉬기 활성화 (페이드아웃 중이었다면 중단)
+      if (lightFadeTweenRef.current) {
+        lightFadeTweenRef.current.kill();
+        lightFadeTweenRef.current = null;
+      }
+      lightBreathingRef.current = true;
+
+      src.onended = () => {
+        isPlayingRef.current = false;
+      };
+      
+      console.log('🎵 오디오 재생 시작');
+    } catch (error) {
+      console.error('❌ [오디오 재생 에러 상세 정보]:', error);
+      console.error('👉 실패 원인 분석: 브라우저 자동재생(Autoplay) 정책 차단이거나 오디오 파일 로스트(/AM_Velvet.mp3)일 수 있습니다.');
     }
-    lightBreathingRef.current = true;
-
-    src.onended = () => {
-      isPlayingRef.current = false;
-    };
   }, [ensureAudioContext, loadAudio]);
 
   // ── 정지 ─────────────────────────────────────────────
