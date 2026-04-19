@@ -343,17 +343,22 @@ export default function App() {
 
   // ── Spline 씬 로드 완료 콜백 ─────────────────────────
   const onLoad = useCallback((spline) => {
+    console.log(`🎉 Spline 씬 로드 성공! (${new Date().toLocaleTimeString()})`);
+    console.log(`   Scene URL: /scene.splinecode`);
+
     // 일반 버튼 확인 로그
     const buttonNames = [
       'Play_Button', 'Stop_Button', 'Pause_Button',
       'LowBoost_Button', 'HighBoost_Button', 'RadioFilter_Button',
       'Reset_Button', 'Spining Disc', 'Point Light',
     ];
+    let foundCount = 0;
     buttonNames.forEach((n) => {
       const obj = spline.findObjectByName(n);
-      if (obj) console.log(`✅ ${n} found`);
+      if (obj) { console.log(`✅ ${n} found`); foundCount++; }
       else console.warn(`⚠️ ${n} not found`);
     });
+    console.log(`   버튼 검색 결과: ${foundCount}/${buttonNames.length} 발견`);
 
     // EQ 레벨 버튼 객체 참조 저장
     const lowBtn = spline.findObjectByName('Levels-Low_Button');
@@ -393,6 +398,20 @@ export default function App() {
     startPollingLoop();
     console.log('🔄 EQ polling + Disc rotation + Light breathing started');
   }, [startPollingLoop]);
+
+  // ── Spline 씬 로드 에러 콜백 ──────────────────────────
+  const onError = useCallback((error) => {
+    console.error('❌ Spline 씬 로드 실패!');
+    console.error('   에러 메시지:', error?.message || error);
+    console.error('   에러 객체:', error);
+    console.error('   Scene URL: /scene.splinecode');
+    console.error('   User Agent:', navigator.userAgent);
+    console.error('   시간:', new Date().toLocaleTimeString());
+    console.error('   ─── 확인 사항 ───');
+    console.error('   1. public/scene.splinecode 파일이 존재하는지 확인');
+    console.error('   2. 네트워크 탭에서 해당 파일의 HTTP 상태 코드 확인');
+    console.error('   3. 파일이 손상되지 않았는지 확인 (Spline에서 다시 추출)');
+  }, []);
 
   // ── Spline 마우스다운(클릭) 이벤트 ───────────────────
   const onSplineMouseDown = useCallback(
@@ -442,9 +461,10 @@ export default function App() {
       {/* ── 3D Canvas: 화면 전체를 덮는 Spline 씬 ── */}
       <div className="spline-canvas">
         <Spline
-          scene="https://prod.spline.design/6bw8OQ70Jc32P0RZ/scene.splinecode?v=1"
+          scene="/scene.splinecode?v=1"
           style={{ width: '100%', height: '100%' }}
           onLoad={onLoad}
+          onError={onError}
           onSplineMouseDown={onSplineMouseDown}
         />
       </div>
