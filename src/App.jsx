@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback, useEffect, useState } from 'react';
 import Spline from '@splinetool/react-spline';
 import gsap from 'gsap';
 
@@ -26,12 +26,42 @@ function mapRange(value, inMin, inMax, outMin, outMax) {
 }
 
 export default function App() {
+  const [showSpline, setShowSpline] = useState(false); // 500ms 렌더링 지연용 상태
+  const splineAppRef = useRef(null); // 언마운트 시 메모리 회수를 위한 인스턴스 참조
+
   const audioContextRef = useRef(null);
   const sourceNodeRef = useRef(null);
   const audioBufferRef = useRef(null);
   const startTimeRef = useRef(0);
   const pauseOffsetRef = useRef(0);
   const isPlayingRef = useRef(false);
+
+  // ── 초기 렌더링 지연 및 디바이스 픽셀 비율 제한 설정 ──
+  useEffect(() => {
+    // 1) 고해상도 모바일(Retina) 기기에서 GPU 부하 방지
+    if (window.devicePixelRatio > 2) {
+      try {
+        Object.defineProperty(window, 'devicePixelRatio', {
+          get: () => 2
+        });
+        console.log('✅ devicePixelRatio 제한: 2로 강제 할당');
+      } catch (e) {
+        console.warn('⚠️ devicePixelRatio 덮어쓰기 실패:', e);
+      }
+    }
+
+    // 2) 500ms 지연 로드시켜 페이지 렌더 브로킹 및 초반 부하 분산
+    const timer = setTimeout(() => setShowSpline(true), 500);
+
+    // 3) 메모리 누수 관리: 컴포넌트 해제 시 정리(dispose)
+    return () => {
+      clearTimeout(timer);
+      if (splineAppRef.current && typeof splineAppRef.current.dispose === 'function') {
+        splineAppRef.current.dispose();
+        console.log('🧹 Spline 씬 메모리 정리(dispose) 완료');
+      }
+    };
+  }, []);
 
   // ── 이펙트 필터 Refs ──────────────────────────────────
   const lowFilterRef = useRef(null);
@@ -343,6 +373,9 @@ export default function App() {
 
   // ── Spline 씬 로드 완료 콜백 ─────────────────────────
   const onLoad = useCallback((spline) => {
+    // 메모리 정리를 위해 인스턴스 저장
+    splineAppRef.current = spline;
+
     console.log(`🎉 Spline 씬 로드 성공! (${new Date().toLocaleTimeString()})`);
     console.log(`   Scene URL: /scene.splinecode`);
 
@@ -460,13 +493,17 @@ export default function App() {
     <div className="app-container">
       {/* ── 3D Canvas: 화면 전체를 덮는 Spline 씬 ── */}
       <div className="spline-canvas">
-        <Spline
-          scene="/scene.splinecode?v=1"
-          style={{ width: '100%', height: '100%' }}
-          onLoad={onLoad}
-          onError={onError}
-          onSplineMouseDown={onSplineMouseDown}
-        />
+        {showSpline && (
+          <Spline
+            scene="/scene.splinecode?v=1"
+            style={{ width: '100%', height: '100%' }}
+            onLoad={onLoad}
+            onError={onError}
+            onSplineMouseDown={onSplineMouseDown}
+            renderOnDemand={true} // 매 프레임 그리지 않고 이벤트나 상태 변경 때만 렌더링
+            hint="performance"    // 성능 최우선 힌트
+          />
+        )}
       </div>
 
       {/* ── UI Overlay: 피그마 디자인을 입힐 레이어 ── */}
