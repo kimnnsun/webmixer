@@ -1,0 +1,63 @@
+/* ── Full-Viewport Reset ─────────────────────────────── */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+body {
+  background-color: #000000;
+}
+
+/* ── App Container (Scene Wrapper) ───────────────────── */
+.app-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── 3D Canvas: 화면 전체를 덮도록 ───────────────────── */
+.spline-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Spline 라이브러리가 내부적으로 생성하는 canvas에도 적용 */
+.spline-canvas canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ── UI Overlay Layer ────────────────────────────────── */
+/* 3D 캔버스 위에 피그마 디자인을 올릴 수 있는 레이어       */
+/* 레이어 전체는 클릭 투과, 안의 버튼만 클릭 가능            */
+.ui-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* 오버레이 내부의 클릭 가능한 요소 */
+.ui-overlay .clickable {
+  pointer-events: auto;
+  cursor: pointer;
+}
